@@ -7,16 +7,28 @@ import { UsersController } from './users.controller';
 import { User, UserSchema } from './schema/user.schema';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { EmailModule } from '../email/email.module';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
-    JwtModule.register({}),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_ACCESS_SECRET'),
+        signOptions: {
+          expiresIn: configService.get<string>('JWT_ACCESS_EXPIRATION') || '15m',
+        },
+      }),
+    }),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     EmailModule,
   ],
   controllers: [UsersController],
-  providers: [UsersService, JwtStrategy],
-  exports: [UsersService],
+  providers: [UsersService, JwtStrategy, JwtAuthGuard, RolesGuard],
+  exports: [JwtStrategy, JwtAuthGuard, RolesGuard,UsersService],
 })
 export class UsersModule {}
